@@ -647,7 +647,7 @@ C_data_load_uncomp_for:
     BIC     R0, R0, #0x3
     SUB     SP, SP, R0
     MOV     LR, SP
-    STMFD   SP!, {R2-R10}
+    STMFD   SP!, {R3-R10}
     ANDS    R10, R0, #0xE0
     RSB     R10, R10, #0xF0
     ADD     PC, PC, R10, LSR#2
@@ -678,7 +678,7 @@ C_copy_loop_rest:
     SUBS    R0, #0x4
     BGT     C_copy_loop_rest
 C_copy_end:
-    LDMFD   SP!, {R2-R10}
+    LDMFD   SP!, {R3-R10}
 .endif
 C_select_highspeed_codepath_vla_r3_and3:
     AND     R3, R3, #3
