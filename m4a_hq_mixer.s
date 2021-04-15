@@ -9,6 +9,7 @@
     .equ    POKE_CHN_INIT, 1                        @ <-- set to '1' for pokemon games, '0' for other games
     .equ    ENABLE_STEREO, 1                        @ <-- TODO actually implement, not functional yet
     .equ    ENABLE_REVERB, 0                        @ <-- if you want faster code or don't like reverb, set this to '0', set to '1' otherwise
+    .equ    ENABLE_DMA, 1                           @ <-- Using DMA produces smaller code and has better performance. Disable it if your case does not allow to use DMA.
 
     /*****************
      * END OF CONFIG *
@@ -434,32 +435,6 @@ C_mixing_setup_comp_rev:
     BMI     C_data_load_uncomp_rev
     B       C_data_load_uncomp_for
 
-/* R0: base addr
- * R1: len in bytes */
-F_clear_mem:
-    STMFD   SP!, {R0, R2-R5, LR}
-    MOV     R2, #0
-    MOV     R3, #0
-    MOV     R4, #0
-    MOV     R5, #0
-    AND     LR, R1, #0x30
-    RSB     LR, LR, #0x30
-    ADD     PC, PC, LR, LSR#2
-C_clear_loop:
-    STMIA   R0!, {R2-R5}
-    STMIA   R0!, {R2-R5}
-    STMIA   R0!, {R2-R5}
-    STMIA   R0!, {R2-R5}
-    SUBS    R1, R1, #0x40
-    BPL     C_clear_loop
-    ANDS    R1, R1, #0xC
-    LDMEQFD SP!, {R0, R2-R5, PC}
-C_clear_loop_rest:
-    STMIA   R0!, {R2}
-    SUBS    R1, R1, #4
-    BGT     C_clear_loop_rest
-    LDMFD   SP!, {R0, R2-R5, PC}
-
 /* registers:
  * R9: src address (relative to start address)
  * R0: dst address (on stack)
@@ -651,18 +626,60 @@ C_data_load_uncomp_for:
     STMFD   SP!, {R2, R9}
     CMPLO   R0, #0x400                      @ > 0x400 bytes --> read directly from ROM rather than buffered
     BHS     C_select_highspeed_codepath
+
+    BIC     R1, R3, #3
+    ADD     R0, R0, #7
+.if ENABLE_DMA==1
     /*
      * The code below inits the DMA to read word aligned
      * samples from ROM to stack
      */
-    BIC     R1, R3, #3
     MOV     R9, #0x04000000
     ADD     R9, #0x000000D4
-    ADD     R0, R0, #7
     MOV     R0, R0, LSR#2
     SUB     SP, SP, R0, LSL#2
     ORR     LR, R0, #0x84000000
     STMIA   R9, {R1, SP, LR}                @ actually starts the DMA
+.else
+    /*
+     * This alternative path doesn't use DMA but copies with CPU instead
+     */
+    BIC     R0, R0, #0x3
+    SUB     SP, SP, R0
+    MOV     LR, SP
+    STMFD   SP!, {R2-R10}
+    ANDS    R10, R0, #0xE0
+    RSB     R10, R10, #0xF0
+    ADD     PC, PC, R10, LSR#2
+C_copy_loop:
+    LDMIA   R1!, {R3-R10}
+    STMIA   LR!, {R3-R10}
+    LDMIA   R1!, {R3-R10}
+    STMIA   LR!, {R3-R10}
+    LDMIA   R1!, {R3-R10}
+    STMIA   LR!, {R3-R10}
+    LDMIA   R1!, {R3-R10}
+    STMIA   LR!, {R3-R10}
+    LDMIA   R1!, {R3-R10}
+    STMIA   LR!, {R3-R10}
+    LDMIA   R1!, {R3-R10}
+    STMIA   LR!, {R3-R10}
+    LDMIA   R1!, {R3-R10}
+    STMIA   LR!, {R3-R10}
+    LDMIA   R1!, {R3-R10}
+    STMIA   LR!, {R3-R10}
+    SUBS    R0, #0x100
+    BPL     C_copy_loop
+    ANDS    R0, R0, #0x1C
+    BEQ     C_copy_end
+C_copy_loop_rest:
+    LDMIA   R1!, {R3}
+    STMIA   LR!, {R3}
+    SUBS    R0, #0x4
+    BGT     C_copy_loop_rest
+C_copy_end:
+    LDMFD   SP!, {R2-R10}
+.endif
 C_select_highspeed_codepath_vla_r3_and3:
     AND     R3, R3, #3
 C_select_highspeed_codepath_vla_r3:
@@ -1270,3 +1287,29 @@ C_synth_triangle_loop:
     BGT     C_synth_triangle_loop
 
     B       C_end_mixing
+
+/* R0: base addr
+ * R1: len in bytes */
+F_clear_mem:
+    STMFD   SP!, {R0, R2-R5, LR}
+    MOV     R2, #0
+    MOV     R3, #0
+    MOV     R4, #0
+    MOV     R5, #0
+    AND     LR, R1, #0x30
+    RSB     LR, LR, #0x30
+    ADD     PC, PC, LR, LSR#2
+C_clear_loop:
+    STMIA   R0!, {R2-R5}
+    STMIA   R0!, {R2-R5}
+    STMIA   R0!, {R2-R5}
+    STMIA   R0!, {R2-R5}
+    SUBS    R1, R1, #0x40
+    BPL     C_clear_loop
+    ANDS    R1, R1, #0xC
+    LDMEQFD SP!, {R0, R2-R5, PC}
+C_clear_loop_rest:
+    STMIA   R0!, {R2}
+    SUBS    R1, R1, #4
+    BGT     C_clear_loop_rest
+    LDMFD   SP!, {R0, R2-R5, PC}

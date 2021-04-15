@@ -57,6 +57,7 @@ The assembly program has a little section right in the beginning with the follow
 - `POKE_CHN_INIT`: Pokémon games initialize the PCM channels a bit different, so you should set this to `1` if you use this on a Pokémon game. For other games, select `0`.
 - `ENABLE_STEREO`: This option is not yet available and should be set to `1`. In the future this is intended to allow this code to be used with games that only output mono sound. You cannot simply use the standard stereo version on mono games without corrupting memory.
 - `ENABLE_REVERB`: To get similar results in terms of reverb as default games, set this to `1`. If you don't need the reverb effect, you can increase processing speed by setting this to `0`.
+- `ENABLE_DMA`: DMA can be used to speed up copying of data from ROM. This also comes at the benefit of smaller code. However, this might cause games to crash that don't expect the DMA registers to change. It might also mess up HBlank effects since the CPU will be paused for longer periods.
 
 ## How to assemble
 
