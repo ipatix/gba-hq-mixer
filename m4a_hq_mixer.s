@@ -8,7 +8,7 @@
     .equ    hq_buffer_ptr, SoundMainRAM_MixBuffer   @ <-- set this to an IWRAM address where you want your high quality mix buffer to be
     .equ    POKE_CHN_INIT, 1                        @ <-- set to '1' for pokemon games, '0' for other games
     .equ    ENABLE_STEREO, 1                        @ <-- TODO actually implement, not functional yet
-    .equ    ENABLE_REVERB, 0                        @ <-- if you want faster code or don't like reverb, set this to '1', set to '0' otherwise
+    .equ    ENABLE_REVERB, 0                        @ <-- if you want faster code or don't like reverb, set this to '0', set to '1' otherwise
 
     /*****************
      * END OF CONFIG *
@@ -18,6 +18,8 @@
 
     /* globals */
     .global SoundMainRAM
+
+    .equ    DMA_BUFFER_SIZE, 0x630
 
     .equ    FRAME_LENGTH_5734, 0x60
     .equ    FRAME_LENGTH_7884, 0x84             @ THIS MODE IS NOT SUPPORTED BY THIS ENGINE BECAUSE IT DOESN'T USE AN 8 ALIGNED BUFFER LENGTH
@@ -1017,7 +1019,7 @@ C_downsampler:
     LDR     R8, [SP, #ARG_FRAME_LENGTH]
     LDR     R9, [SP, #ARG_BUFFER_POS]
 .if ENABLE_REVERB==1
-    ORR     R1, R1, R1, LSL#16
+    ORR     R2, R2, R2, LSL#16
     MOVNE   R3, R8
     ADDEQ   R3, R3, #VAR_PCM_BUFFER
     SUBEQ   R3, R3, R9
@@ -1061,34 +1063,34 @@ C_downsampler_loop:
     MOV     R12, R12, LSL#24
     MOV     R0, R12, ASR#24
 
-    ADD     R9, R9, #0x630      @ \ LDRSH  R12, [R9, #0x630]!
-    LDRSH   R12, [R9]           @ / is unfortunately not a valid instruction
+    ADD     R9, R9, #DMA_BUFFER_SIZE    @ \ LDRSH  R12, [R9, #0x630]!
+    LDRSH   R12, [R9]                   @ / is unfortunately not a valid instruction
 
     ADD     R1, R1, R12, ASR#8
     MOV     R12, R12, LSL#24
-    ADD     R0, R12, ASR#24
+    ADD     R0, R0, R12, ASR#24
 
     LDRSH   R12, [R9, -R3]!
 
     ADD     R1, R1, R12, ASR#8
     MOV     R12, R12, LSL#24
-    ADD     R0, R12, ASR#24
+    ADD     R0, R0, R12, ASR#24
 
-    STRH    R6, [R9]            @ \ STRH  R6, [R9], #-0x630
-    SUB     R9, R9, #0x630      @ / is unfortunately not a valid instruction
+    STRH    R6, [R9]                    @ \ STRH  R6, [R9], #-0x630
+    SUB     R9, R9, #DMA_BUFFER_SIZE    @ / is unfortunately not a valid instruction
     LDRSH   R12, [R9]
     STRH    R7, [R9], #2
 
     ADD     R1, R1, R12, ASR#8
     MOV     R12, R12, LSL#24
-    ADD     R0, R12, ASR#24
+    ADD     R0, R0, R12, ASR#24
 
     MUL     R1, R2, R1
     MUL     R0, R2, R0
 
     STMIA   R10!, {R0, R1}
 .else /* if ENABLE_REVERB==0 */
-    MOV     R0, #0x630
+    MOV     R0, #DMA_BUFFER_SIZE
     STRH    R6, [R9, R0]
     STRH    R7, [R9], #2
 
