@@ -118,6 +118,7 @@
     .equ    BDPCM_BLK_SIZE_SHIFT, 0x6
 
     .thumb
+    .thumb_func
     .align  2
 
 SoundMainRAM:
@@ -1002,6 +1003,7 @@ C_mixing_epilogue:
     BX      R0
 
     .thumb
+    .thumb_func
 
 C_end_channel_state_loop:
     LDR     R0, [SP, #ARG_REMAIN_CHN]
@@ -1123,6 +1125,7 @@ C_downsampler_loop:
 
     .align  1
     .thumb
+    .thumb_func
 
 C_downsampler_return:
     LDR     R0, [SP, #ARG_PCM_STRUCT]
