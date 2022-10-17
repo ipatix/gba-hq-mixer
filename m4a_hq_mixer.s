@@ -656,22 +656,10 @@ C_data_load_uncomp_for:
     RSB     R10, R10, #0xF0
     ADD     PC, PC, R10, LSR#2
 C_copy_loop:
-    LDMIA   R1!, {R3-R10}
-    STMIA   LR!, {R3-R10}
-    LDMIA   R1!, {R3-R10}
-    STMIA   LR!, {R3-R10}
-    LDMIA   R1!, {R3-R10}
-    STMIA   LR!, {R3-R10}
-    LDMIA   R1!, {R3-R10}
-    STMIA   LR!, {R3-R10}
-    LDMIA   R1!, {R3-R10}
-    STMIA   LR!, {R3-R10}
-    LDMIA   R1!, {R3-R10}
-    STMIA   LR!, {R3-R10}
-    LDMIA   R1!, {R3-R10}
-    STMIA   LR!, {R3-R10}
-    LDMIA   R1!, {R3-R10}
-    STMIA   LR!, {R3-R10}
+    .rept 8                                 @ duff's device 8 times
+      LDMIA   R1!, {R3-R10}
+      STMIA   LR!, {R3-R10}
+    .endr
     SUBS    R0, #0x100
     BPL     C_copy_loop
     ANDS    R0, R0, #0x1C
@@ -709,7 +697,7 @@ C_select_highspeed_codepath:
     /* This loads the needed code to RAM */
     STR     R0, previous_fast_code
     LDMIA   R0, {R0-R2, R8-R10}             @ load 6 opcodes
-    ADR     LR, fast_mixing_instructions
+    ADR     LR, fast_mixing_instructions+(ARM_OP_LEN*2) @ first NOP
 
 C_fast_mixing_creation_loop:
     /* paste code to destination, see below for patterns */
@@ -727,89 +715,29 @@ C_fast_mixing_creation_loop:
 C_skip_fast_mixing_creation:
     LDR     R8, [SP]                        @ restore R8 with the frame length
     LDR     R8, [R8, #(ARG_FRAME_LENGTH + 0x8 + 0xC)]
-    MOV     R2, #0xFF000000                 @ load the fine position overflow bitmask
+    MOVS    R2, #0xFF000000                 @ load the fine position overflow bitmask, set NE
     LDRSB   R12, [R3]
     SUB     R12, R12, R6
 C_fast_mixing_loop:
     /* This is the actual processing and interpolation code loop; NOPs will be replaced by the code above */
-    LDMIA   R5, {R0, R1, R10, LR}       @ load 4 stereo samples to Registers
-    MUL     R9, R7, R12
 fast_mixing_instructions:
-    NOP                                 @ Block #1
-    NOP
-    MLANE   R0, R11, R9, R0
-    NOP
-    NOP
-    NOP
-    NOP
-    BIC     R7, R7, R2, ASR#1
-    MULNE   R9, R7, R12
-    NOP                                 @ Block #2
-    NOP
-    MLANE   R1, R11, R9, R1
-    NOP
-    NOP
-    NOP
-    NOP
-    BIC     R7, R7, R2, ASR#1
-    MULNE   R9, R7, R12
-    NOP                                 @ Block #3
-    NOP
-    MLANE   R10, R11, R9, R10
-    NOP
-    NOP
-    NOP
-    NOP
-    BIC     R7, R7, R2, ASR#1
-    MULNE   R9, R7, R12
-    NOP                                 @ Block #4
-    NOP
-    MLANE   LR, R11, R9, LR
-    NOP
-    NOP
-    NOP
-    NOP
-    BIC     R7, R7, R2, ASR#1
-    STMIA   R5!, {R0, R1, R10, LR}      @ write 4 stereo samples
+    /* Mix the first 4 stereo samples, then the next 4. */
+    .rept 2
+      LDMIA   R5, {R0, R1, R10, LR}       @ load 4 stereo samples to Registers
+      .irp REG, R0, R1, R10, LR           @ 4 blocks
+        MULNE   R9, R7, R12
+        NOP
+        NOP
+        MLANE   \REG, R11, R9, \REG
+        NOP
+        NOP
+        NOP
+        NOP
+        BIC     R7, R7, R2, ASR#1
+      .endr
+      STMIA   R5!, {R0, R1, R10, LR}      @ write 4 stereo samples
+    .endr
 
-    LDMIA   R5, {R0, R1, R10, LR}       @ load the next 4 stereo samples
-    MULNE   R9, R7, R12
-    NOP                                 @ Block #1
-    NOP
-    MLANE   R0, R11, R9, R0
-    NOP
-    NOP
-    NOP
-    NOP
-    BIC     R7, R7, R2, ASR#1
-    MULNE   R9, R7, R12
-    NOP                                 @ Block #2
-    NOP
-    MLANE   R1, R11, R9, R1
-    NOP
-    NOP
-    NOP
-    NOP
-    BIC     R7, R7, R2, ASR#1
-    MULNE   R9, R7, R12
-    NOP                                 @ Block #3
-    NOP
-    MLANE   R10, R11, R9, R10
-    NOP
-    NOP
-    NOP
-    NOP
-    BIC     R7, R7, R2, ASR#1
-    MULNE   R9, R7, R12
-    NOP                                 @ Block #4
-    NOP
-    MLANE   LR, R11, R9, LR
-    NOP
-    NOP
-    NOP
-    NOP
-    BIC     R7, R7, R2, ASR#1
-    STMIA   R5!, {R0, R1, R10, LR}      @ write 4 stereo samples
     SUBS    R8, R8, #8
     BGT     C_fast_mixing_loop
     /* restore previously saved values */
@@ -960,18 +888,11 @@ C_fixed_mixing_loop:
     LDMIA    R5, {R0, R1, R7, R9}       @ load 4 samples from hq buffer
 
 fixed_mixing_instructions:
-    NOP
-    NOP
-    MLANE   R0, R11, R6, R0             @ add new sample if neccessary
-    NOP
-    NOP
-    MLANE   R1, R11, R6, R1
-    NOP
-    NOP
-    MLANE   R7, R11, R6, R7
-    NOP
-    NOP
-    MLANE   R9, R11, R6, R9
+    .irp    REG, R0, R1, R7, R9
+      NOP
+      NOP
+      MLANE   \REG, R11, R6, \REG       @ add new sample if neccessary
+    .endr
     STMIA   R5!, {R0, R1, R7, R9}       @ write samples to the mixing buffer
     SUBS    LR, LR, #1
     BNE     C_fixed_mixing_loop
@@ -1170,41 +1091,16 @@ C_setup_synth:
     PUSH    {R2, R3, R9, R12}
 
 C_synth_pulse_loop:
-    LDMIA   R5, {R0-R3, R9, R10, R12, LR} @ load 8 samples
-    CMP     R7, R6                      @ Block #1
-    ADDLO   R0, R0, R11, LSL#6
-    SUBHS   R0, R0, R11, LSL#6
-    ADDS    R7, R7, R4, LSL#3
-    CMP     R7, R6                      @ Block #2
-    ADDLO   R1, R1, R11, LSL#6
-    SUBHS   R1, R1, R11, LSL#6
-    ADDS    R7, R7, R4, LSL#3
-    CMP     R7, R6                      @ Block #3
-    ADDLO   R2, R2, R11, LSL#6
-    SUBHS   R2, R2, R11, LSL#6
-    ADDS    R7, R7, R4, LSL#3
-    CMP     R7, R6                      @ Block #4
-    ADDLO   R3, R3, R11, LSL#6
-    SUBHS   R3, R3, R11, LSL#6
-    ADDS    R7, R7, R4, LSL#3
-    CMP     R7, R6                      @ Block #5
-    ADDLO   R9, R9, R11, LSL#6
-    SUBHS   R9, R9, R11, LSL#6
-    ADDS    R7, R7, R4, LSL#3
-    CMP     R7, R6                      @ Block #6
-    ADDLO   R10, R10, R11, LSL#6
-    SUBHS   R10, R10, R11, LSL#6
-    ADDS    R7, R7, R4, LSL#3
-    CMP     R7, R6                      @ Block #7
-    ADDLO   R12, R12, R11, LSL#6
-    SUBHS   R12, R12, R11, LSL#6
-    ADDS    R7, R7, R4, LSL#3
-    CMP     R7, R6                      @ Block #8
-    ADDLO   LR, LR, R11, LSL#6
-    SUBHS   LR, LR, R11, LSL#6
-    ADDS    R7, R7, R4, LSL#3
+    LDMIA   R5, {R0-R3, R9, R10, R12, LR}   @ load 8 samples
 
-    STMIA   R5!, {R0-R3, R9, R10, R12, LR} @ write 8 samples
+    .irp    REG, R0,R1,R2,R3,R9,R10,R12,LR  @ 8 blocks
+      CMP     R7, R6
+      ADDLO   \REG, \REG, R11, LSL#6
+      SUBHS   \REG, \REG, R11, LSL#6
+      ADDS    R7, R7, R4, LSL#3
+    .endr
+
+    STMIA   R5!, {R0-R3, R9, R10, R12, LR}  @ write 8 samples
     SUBS    R8, R8, #8
     BGT     C_synth_pulse_loop
 
@@ -1228,33 +1124,15 @@ C_check_synth_saw:
 C_synth_saw_loop:
 
     LDMIA   R5, {R0, R1, R10, LR}       @ load 4 samples from memory
-    ADDS    R7, R7, R4, LSL#3           @ Block #1 (some oscillator type code)
-    RSB     R9, R12, R7, LSR#24
-    MOV     R6, R7, LSL#1
-    SUB     R9, R9, R6, LSR#27
-    ADDS    R2, R9, R2, ASR#1
-    MLANE   R0, R11, R2, R0
 
-    ADDS    R7, R7, R4, LSL#3           @ Block #2
-    RSB     R9, R12, R7, LSR#24
-    MOV     R6, R7, LSL#1
-    SUB     R9, R9, R6, LSR#27
-    ADDS    R2, R9, R2, ASR#1
-    MLANE   R1, R11, R2, R1
-
-    ADDS    R7, R7, R4, LSL#3           @ Block #3
-    RSB     R9, R12, R7, LSR#24
-    MOV     R6, R7, LSL#1
-    SUB     R9, R9, R6, LSR#27
-    ADDS    R2, R9, R2, ASR#1
-    MLANE   R10, R11, R2, R10
-
-    ADDS    R7, R7, R4, LSL#3           @ Block #4
-    RSB     R9, R12, R7, LSR#24
-    MOV     R6, R7, LSL#1
-    SUB     R9, R9, R6, LSR#27
-    ADDS    R2, R9, R2, ASR#1
-    MLANE   LR, R11, R2, LR
+    .irp    REG, R0, R1, R10, LR        @ 4 blocks (some oscillator type code)
+      ADDS    R7, R7, R4, LSL#3
+      RSB     R9, R12, R7, LSR#24
+      MOV     R6, R7, LSL#1
+      SUB     R9, R9, R6, LSR#27
+      ADDS    R2, R9, R2, ASR#1
+      MLANE   \REG, R11, R2, \REG
+    .endr
 
     STMIA   R5!, {R0, R1, R10, LR}
     SUBS    R8, R8, #4
@@ -1268,25 +1146,13 @@ C_synth_triangle:
 
 C_synth_triangle_loop:
     LDMIA   R5, {R0, R1, R10, LR}       @ load samples from work buffer
-    ADDS    R7, R7, R4, LSL#3           @ Block #1
-    RSBPL   R9, R6, R7, ASR#23
-    SUBMI   R9, R12, R7, LSR#23
-    MLA     R0, R11, R9, R0
 
-    ADDS    R7, R7, R4, LSL#3           @ Block #2
-    RSBPL   R9, R6, R7, ASR#23
-    SUBMI   R9, R12, R7, LSR#23
-    MLA     R1, R11, R9, R1
-
-    ADDS    R7, R7, R4, LSL#3           @ Block #3
-    RSBPL   R9, R6, R7, ASR#23
-    SUBMI   R9, R12, R7, LSR#23
-    MLA     R10, R11, R9, R10
-
-    ADDS    R7, R7, R4, LSL#3           @ Block #4
-    RSBPL   R9, R6, R7, ASR#23
-    SUBMI   R9, R12, R7, LSR#23
-    MLA     LR, R11, R9, LR
+    .irp    REG, R0, R1, R10, LR        @ 4 blocks
+      ADDS    R7, R7, R4, LSL#3
+      RSBPL   R9, R6, R7, ASR#23
+      SUBMI   R9, R12, R7, LSR#23
+      MLA     \REG, R11, R9, \REG
+    .endr
 
     STMIA   R5!, {R0, R1, R10, LR}
     SUBS    R8, R8, #4                  @ subtract #4 from the remainging samples
