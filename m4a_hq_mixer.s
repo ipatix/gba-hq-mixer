@@ -17,6 +17,9 @@
 
     /* NO USER SERVICABLE CODE BELOW HERE! YOU HAVE BEEN WARNED */
 
+    .syntax unified
+    .cpu arm7tdmi
+
     /* globals */
     .global SoundMainRAM
 
@@ -138,7 +141,7 @@ SoundMainRAM:
     LDR     R0, [R4, #VAR_DEF_PITCH_FAC]        @ R0 = samplingrate pitch factor
     MOV     R12, R0
     LDRB    R0, [R4, #VAR_MAX_CHN]
-    ADD     R4, #VAR_FIRST_CHN                  @ R4 = Base channel Offset (Channel #0)
+    ADDS    R4, #VAR_FIRST_CHN                  @ R4 = Base channel Offset (Channel #0)
 
 C_channel_state_loop:
     /* this is the main channel processing loop */
@@ -149,7 +152,7 @@ C_channel_state_loop:
     TST     R0, R6                          @ check if none of the flags is set
     BEQ     C_skip_channel
     /* check channel flags */
-    LSL     R0, R6, #25                     @ shift over the FLAG_CHN_INIT to CARRY
+    LSLS    R0, R6, #25                     @ shift over the FLAG_CHN_INIT to CARRY
     BCC     C_adsr_echo_check               @ continue with normal channel procedure
     /* check leftmost bit */
     BMI     C_stop_channel                  @ FLAG_CHN_INIT | FLAG_CHN_RELEASE -> stop directly
@@ -157,69 +160,69 @@ C_channel_state_loop:
     MOVS    R6, #FLAG_CHN_ATTACK
     /* enabled compression if sample flag is set */
     MOVS    R0, R3                          @ R0 = CHN_WAVE_OFFSET
-    ADD     R0, #WAVE_DATA                  @ R0 = wave data offset
+    ADDS    R0, #WAVE_DATA                  @ R0 = wave data offset
     LDR     R2, [R3, #WAVE_LENGTH]
     CMP     R2, #0
     BEQ     C_channel_init_synth
     LDRB    R5, [R3, #WAVE_TYPE]
-    LSL     R5, R5, #31
+    LSLS    R5, R5, #31
     LDRB    R5, [R4, #CHN_MODE]
     BMI     C_channel_init_comp
-    LSL     R5, R5, #27                     @ shift MODE_REVERSE flag to SIGN
+    LSLS    R5, R5, #27                     @ shift MODE_REVERSE flag to SIGN
     BMI     C_channel_init_noncomp_reverse
     /* Pokemon games seem to init channels differently than other m4a games */
 C_channel_init_noncomp_forward:
 .if POKE_CHN_INIT==0
 .else
     LDR     R1, [R4, #CHN_SAMPLE_COUNTDOWN]
-    ADD     R0, R1
-    SUB     R2, R1
+    ADDS    R0, R1
+    SUBS    R2, R1
 .endif
     B       C_channel_init_check_loop
 C_channel_init_synth:
-    MOV     R5, #MODE_SYNTH
+    MOVS    R5, #MODE_SYNTH
     STRB    R5, [R4, #CHN_MODE]
     LDRB    R1, [R3, #(WAVE_DATA + SYNTH_TYPE)]
     CMP     R1, #2
     BNE     C_channel_init_check_loop
     /* start triangular synth wave at 90 degree phase
      * to avoid a pop sound at the start of the wave */
-    MOV     R5, #0x40
-    LSL     R5, #24
+    MOVS    R5, #0x40
+    LSLS    R5, #24
     STR     R5, [R4, #CHN_FINE_POSITION]
-    MOV     R5, #0
+    MOVS    R5, #0
     B       C_channel_init_check_loop_no_fine_pos
 C_channel_init_noncomp_reverse:
 .if POKE_CHN_INIT==0
-    ADD     R0, R2
+    ADDS    R0, R2
 .else
-    ADD     R0, R2
+    ADDS    R0, R2
     LDR     R1, [R4, #CHN_SAMPLE_COUNTDOWN]
-    SUB     R0, R1
-    SUB     R2, R1
+    SUBS    R0, R1
+    SUBS    R2, R1
 .endif
     B       C_channel_init_check_loop
 C_channel_init_comp:
-    MOV     R0, #MODE_COMP
-    ORR     R5, R0
+    MOVS    R0, #MODE_COMP
+    ORRS    R5, R0
     STRB    R5, [R4, #CHN_MODE]
-    LSL     R5, R5, #27                     @ shift MODE_REVERSE flag to SIGN
+    LSLS    R5, R5, #27                     @ shift MODE_REVERSE flag to SIGN
     BMI     C_channel_init_comp_reverse
 C_channel_init_comp_forward:
 .if POKE_CHN_INIT==0
-    MOV     R0, #0
+    MOVS    R0, #0
 .else
     LDR     R0, [R4, #CHN_SAMPLE_COUNTDOWN]
-    SUB     R2, R0
+    SUBS    R2, R0
 .endif
     B       C_channel_init_check_loop
 C_channel_init_comp_reverse:
 .if POKE_CHN_INIT==0
-    MOV     R0, R2
+    MOVS    R0, R2
 .else
     LDR     R1, [R4, #CHN_SAMPLE_COUNTDOWN]
-    SUB     R2, R1
-    MOV     R0, R2
+    SUBS    R2, R1
+    MOVS    R0, R2
 .endif
 C_channel_init_check_loop:
     MOVS    R5, #0                          @ initial envelope = #0
@@ -228,24 +231,24 @@ C_channel_init_check_loop_no_fine_pos:
     STR     R0, [R4, #CHN_POSITION_ABS]
     STR     R2, [R4, #CHN_SAMPLE_COUNTDOWN]
     STRB    R5, [R4, #CHN_ADSR_LEVEL]
-    MOV     R2, #CHN_SAMPLE_STOR            @ offset is too large to be used in one instruction
+    MOVS    R2, #CHN_SAMPLE_STOR            @ offset is too large to be used in one instruction
     STRB    R5, [R4, R2]
     /* enabled loop if required */
     LDRB    R2, [R3, #WAVE_LOOP_FLAG]
-    LSR     R0, R2, #6
+    LSRS    R0, R2, #6
     BEQ     C_adsr_attack
     /* loop enabled here */
-    ADD     R6, #FLAG_CHN_LOOP
+    ADDS    R6, #FLAG_CHN_LOOP
     B       C_adsr_attack
 
 C_adsr_echo_check:
     /* this is the normal ADSR procedure without init */
     LDRB    R5, [R4, #CHN_ADSR_LEVEL]
-    LSL     R0, R6, #29                     @ FLAG_CHN_ECHO --> bit 31 (sign bit)
+    LSLS    R0, R6, #29                     @ FLAG_CHN_ECHO --> bit 31 (sign bit)
     BPL     C_adsr_release_check
     /* pseudo echo handler */
     LDRB    R0, [R4, #CHN_ECHO_REMAIN]
-    SUB     R0, #1
+    SUBS    R0, #1
     STRB    R0, [R4, #CHN_ECHO_REMAIN]
     BHI     C_channel_vol_calc              @ continue normal if channel is still on
 
@@ -258,12 +261,12 @@ C_skip_channel:
     B       C_end_channel_state_loop
 
 C_adsr_release_check:
-    LSL     R0, R6, #25                      @ FLAG_CHN_RELEASE --> bit 31 (sign bit)
+    LSLS    R0, R6, #25                      @ FLAG_CHN_RELEASE --> bit 31 (sign bit)
     BPL     C_adsr_decay_check
     /* release handler */
     LDRB    R0, [R4, #CHN_RELEASE]
-    MUL     R5, R5, R0
-    LSR     R5, #8
+    MULS    R5, R5, R0
+    LSRS    R5, #8
     BLE     C_adsr_released
     /* pseudo echo init handler */
     LDRB    R0, [R4, #CHN_ECHO_VOL]
@@ -277,19 +280,19 @@ C_adsr_released:
     BEQ     C_stop_channel
     /* pseudo echo volume handler */
     MOVS    R0, #FLAG_CHN_ECHO
-    ORR     R6, R0                          @ set the echo flag
+    ORRS    R6, R0                          @ set the echo flag
     B       C_adsr_save_and_finalize
 
 C_adsr_decay_check:
     /* check if decay is active */
     MOVS    R2, #(FLAG_CHN_DECAY+FLAG_CHN_SUSTAIN)
-    AND     R2, R6
+    ANDS    R2, R6
     CMP     R2, #FLAG_CHN_DECAY
     BNE     C_adsr_attack_check             @ decay not active yet
     /* decay handler */
     LDRB    R0, [R4, #CHN_DECAY]
-    MUL     R5, R5, R0
-    LSR     R5, R5, #8
+    MULS    R5, R5, R0
+    LSRS    R5, R5, #8
     LDRB    R0, [R4, #CHN_SUSTAIN]
     CMP     R5, R0
     BHI     C_channel_vol_calc              @ sample didn't decay yet
@@ -307,7 +310,7 @@ C_adsr_attack_check:
 C_adsr_attack:
     /* apply attack summand */
     LDRB    R0, [R4, #CHN_ATTACK]
-    ADD     R5, R0
+    ADDS    R5, R0
     CMP     R5, #0xFF
     BLO     C_adsr_save_and_finalize
     /* cap attack at 0xFF */
@@ -315,7 +318,7 @@ C_adsr_attack:
 
 C_adsr_next_state:
     /* switch to next adsr phase */
-    SUB     R6, #1
+    SUBS    R6, #1
 
 C_adsr_save_and_finalize:
     /* store channel status */
@@ -327,38 +330,38 @@ C_channel_vol_calc:
     /* apply master volume */
     LDR     R0, [SP, #ARG_PCM_STRUCT]
     LDRB    R0, [R0, #VAR_MASTER_VOL]
-    ADD     R0, #1
-    MUL     R5, R0
+    ADDS    R0, #1
+    MULS    R5, R0
     /* left side volume */
     LDRB    R0, [R4, #CHN_VOL_2]
-    MUL     R0, R5
-    LSR     R0, #13
+    MULS    R0, R5
+    LSRS    R0, #13
     MOV     R10, R0                         @ R10 = left volume
     /* right side volume */
     LDRB    R0, [R4, #CHN_VOL_1]
-    MUL     R0, R5
-    LSR     R0, #13
+    MULS    R0, R5
+    LSRS    R0, #13
     MOV     R11, R0                         @ R11 = right volume
     /*
      * Now we get closer to actual mixing:
      * For looped samples some additional operations are required
      */
     MOVS    R0, #FLAG_CHN_LOOP
-    AND     R0, R6
+    ANDS    R0, R6
     BEQ     C_sample_loop_setup_skip
     /* loop setup handler */
-    ADD     R3, #WAVE_LOOP_START
+    ADDS    R3, #WAVE_LOOP_START
     LDMIA   R3!, {R0, R1}                   @ R0 = loop start, R1 = loop end
     LDRB    R2, [R4, #CHN_MODE]
-    LSL     R2, R2, #MODE_FLGSH_SIGN_REVERSE
+    LSLS    R2, R2, #MODE_FLGSH_SIGN_REVERSE
     BCS     C_sample_loop_setup_comp
-    ADD     R3, R0                          @ R3 = loop start position (absolute)
+    ADDS    R3, R0                          @ R3 = loop start position (absolute)
     B       C_sample_loop_setup_finish
 C_sample_loop_setup_comp:
-    MOV     R3, R0
+    MOVS    R3, R0
 C_sample_loop_setup_finish:
     STR     R3, [SP, #ARG_LOOP_START_POS]
-    SUB     R0, R1, R0
+    SUBS    R0, R1, R0
 
 C_sample_loop_setup_skip:
     /* do the rest of the setup */
@@ -404,7 +407,7 @@ C_mixing_setup:
     TST     R0, #MODE_FIXED_FREQ
     BNE     C_setup_fixed_freq_mixing
 C_mixing_setup_comp_rev:
-    STMFD   SP!, {R4, R9, R12}
+    PUSH    {R4, R9, R12}
     ADD     R4, R4, #CHN_FINE_POSITION
     LDMIA   R4, {R7, LR}                    @ R7 = Fine Position, LR = Frequency
     MUL     R4, LR, R12                     @ R4 = inter sample steps = output rate factor * samplerate
@@ -441,7 +444,7 @@ C_mixing_setup_comp_rev:
  * R0: dst address (on stack)
  * R12: delta_lookup_table */
 F_decode_compressed:
-    STMFD   SP!, {R3, LR}
+    PUSH    {R3, LR}
     MOV     LR, #BDPCM_BLK_SIZE
     LDRB    R2, [R9], #1
     LDRB    R3, [R9], #1
@@ -460,7 +463,7 @@ bdpcm_instructions:
     NOP
     SUBS    LR, #2
     BGT     C_bdpcm_decoder_loop
-    LDMFD   SP!, {R3, PC}
+    POP     {R3, PC}
 
 bdpcm_instruction_resource_for:
     STRB    R2, [R0], #1
@@ -500,7 +503,7 @@ C_data_load_comp_for:
     /* --- */
     ADD     R1, R3, R0
     SUBS    R0, R2, R0
-    STMFD   SP!, {R0, R1}
+    PUSH    {R0, R1}
     SUB     SP, R8
     BGT     C_data_load_comp_for_calc_pos
     /* locate end of sample data block */
@@ -518,7 +521,7 @@ C_data_load_comp_for_calc_pos:
 C_data_load_comp_decode:
     LDR     R2, [R10, #8]           @ load chn_ptr from previous STMFD
     @ zero flag should be only set when leaving from F_clear_mem (R1 = 0)
-    STREQB  R1, [R2, #CHN_STATUS]
+    STRBEQ  R1, [R2, #CHN_STATUS]
     LDR     R2, [R2, #CHN_WAVE_OFFSET]
     ADD     R2, #WAVE_DATA
     MOV     R1, #BDPCM_BLK_STRIDE
@@ -547,7 +550,7 @@ C_data_load_comp_rev:
     /* --- */
     SUB     LR, R3, R0
     SUBS    R0, R2, R0
-    STMFD   SP!, {R0, LR}
+    PUSH    {R0, LR}
     MOV     R0, SP
     SUB     SP, R8
     BGT     C_data_load_comp_rev_calc_pos
@@ -557,7 +560,7 @@ C_data_load_comp_rev:
     ADD     R0, SP, R8
     BL      F_clear_mem
 C_data_load_comp_rev_calc_pos:
-    RSB     R3, R3, #0
+    NEG     R3, R3
     AND     R3, R3, #BDPCM_BLK_SIZE_MASK
     B       C_data_load_comp_decode
 
@@ -579,7 +582,7 @@ C_data_load_uncomp_rev:
     /* --- */
     SUB     R1, R3, R0
     SUBS    R0, R2, R0
-    STMFD   SP!, {R0, R1}
+    PUSH    {R0, R1}
     MOV     R0, SP
     SUB     SP, R8
     BGT     C_data_load_uncomp_rev_loop
@@ -600,7 +603,7 @@ C_data_load_uncomp_rev_loop:
     STMDB   R0!, {R1}
     SUBS    R8, #4
     BGT     C_data_load_uncomp_rev_loop
-    RSB     R3, R3, #0
+    NEG     R3, R3
     B       C_select_highspeed_codepath_vla_r3_and3
 
 C_data_load_uncomp_for:
@@ -624,7 +627,7 @@ C_data_load_uncomp_for:
      * These values will get reloaded after channel processing
      * due to the lack of registers.
      */
-    STMFD   SP!, {R2, R9}
+    PUSH    {R2, R9}
     CMPLO   R0, #0x400                      @ > 0x400 bytes --> read directly from ROM rather than buffered
     BHS     C_select_highspeed_codepath
 
@@ -648,7 +651,7 @@ C_data_load_uncomp_for:
     BIC     R0, R0, #0x3
     SUB     SP, SP, R0
     MOV     LR, SP
-    STMFD   SP!, {R3-R10}
+    PUSH    {R3-R10}
     ANDS    R10, R0, #0xE0
     RSB     R10, R10, #0xF0
     ADD     PC, PC, R10, LSR#2
@@ -679,14 +682,14 @@ C_copy_loop_rest:
     SUBS    R0, #0x4
     BGT     C_copy_loop_rest
 C_copy_end:
-    LDMFD   SP!, {R3-R10}
+    POP     {R3-R10}
 .endif
 C_select_highspeed_codepath_vla_r3_and3:
     AND     R3, R3, #3
 C_select_highspeed_codepath_vla_r3:
     ADD     R3, R3, SP
 C_select_highspeed_codepath:
-    STMFD   SP!, {R10}                      @ save original SP for VLA
+    PUSH    {R10}                           @ save original SP for VLA
     /*
      * This code decides which piece of code to load
      * depending on playback-rate / default-rate ratio.
@@ -697,7 +700,7 @@ C_select_highspeed_codepath:
     SUBS    R4, R4, #0x800000
     MOVPL   R11, R11, LSL#1                 @  if >= 1.0*   0-127 --> 0-254 volume level
     ADDPL   R0, R0, #(ARM_OP_LEN*6)         @               6 instructions further
-    SUBPLS  R4, R4, #0x800000               @  if >= 2.0*
+    SUBSPL  R4, R4, #0x800000               @  if >= 2.0*
     ADDPL   R0, R0, #(ARM_OP_LEN*6)
     ADDPL   R4, R4, #0x800000
     LDR     R2, previous_fast_code
@@ -810,9 +813,9 @@ fast_mixing_instructions:
     SUBS    R8, R8, #8
     BGT     C_fast_mixing_loop
     /* restore previously saved values */
-    LDMFD   SP, {SP}                        @ reload original stack pointer from VLA
+    LDR     SP, [SP]                        @ reload original stack pointer from VLA
 C_skip_fast_mixing:
-    LDMFD   SP!, {R2, R3}
+    POP     {R2, R3}
     B       C_end_mixing
 
 /* Various variables for the cached mixer */
@@ -828,14 +831,14 @@ high_speed_code_resource:
     ADDS    R9, R9, R6, LSL#1
     ADDS    R7, R7, R4
     ADDPL   R6, R12, R6
-    LDRPLSB R12, [R3, #1]!
-    SUBPLS  R12, R12, R6
+    LDRSBPL R12, [R3, #1]!
+    SUBSPL  R12, R12, R6
 
     /* Block for Mix Freq > 1.0 AND < 2.0 * Output Frequency */
     ADDS    R9, R6, R9, ASR#23
     ADD     R6, R12, R6
     ADDS    R7, R7, R4
-    LDRPLSB R6, [R3, #1]!
+    LDRSBPL R6, [R3, #1]!
     LDRSB   R12, [R3, #1]!
     SUBS    R12, R12, R6
 
@@ -871,7 +874,7 @@ C_unbuffered_mixing_loop:
 C_unbuffered_mixing_loop_continue:
     SUBS    R9, R9, #1
     ADDEQ   R6, R12, R6
-    LDRNESB R6, [R3, R9]!
+    LDRSBNE R6, [R3, R9]!
     LDRSB   R12, [R3, #1]!
     SUB     R12, R12, R6
     BIC     R7, R7, #0x3F800000
@@ -881,7 +884,7 @@ C_unbuffered_mixing_skip_load:
     BGT     C_unbuffered_mixing_loop
 
 C_end_mixing:
-    LDMFD   SP!, {R4, R9, R12}
+    POP     {R4, R9, R12}
     STR     R7, [R4, #CHN_FINE_POSITION]
     STRB    R6, [R4, #CHN_SAMPLE_STOR]
     B       C_mixing_end_store
@@ -893,7 +896,7 @@ C_unbuffered_mixing_loop_or_end:
     SUBNE   R3, R3, R0
     ADDNE   R2, R2, R0
     BNE     C_unbuffered_mixing_loop_continue
-    LDMFD   SP!, {R4, R9, R12}
+    POP     {R4, R9, R12}
     B       C_mixing_end_and_stop_channel   @ R0 == 0 (if this branches)
 
 C_fixed_mixing_loop_or_end:
@@ -902,7 +905,7 @@ C_fixed_mixing_loop_or_end:
     LDRNE   R3, [SP, #ARG_LOOP_START_POS+0x8]
     BNE     C_fixed_mixing_loop_continue
 
-    LDMFD   SP!, {R4, R9}
+    POP     {R4, R9}
 
 C_mixing_end_and_stop_channel:
     STRB    R0, [R4]                        @ update channel flag with chn halt
@@ -992,7 +995,7 @@ C_fixed_mixing_loop_continue:
     SUBS    R8, R8, #4
     BGT     C_fixed_mixing_length_check     @ repeat the mixing procedure until the buffer is filled
 
-    LDMFD   SP!, {R4, R9}
+    POP     {R4, R9}
 
 C_mixing_end_store:
     STR     R2, [R4, #CHN_SAMPLE_COUNTDOWN]
@@ -1007,26 +1010,26 @@ C_mixing_epilogue:
 
 C_end_channel_state_loop:
     LDR     R0, [SP, #ARG_REMAIN_CHN]
-    SUB     R0, #1
+    SUBS    R0, #1
     BLE     C_main_mixer_return
 
-    ADD     R4, #0x40
+    ADDS    R4, #0x40
     B       C_channel_state_loop
 
 C_main_mixer_return:
     LDR     R3, [SP, #ARG_PCM_STRUCT]
     LDRB    R4, [R3, #VAR_EXT_NOISE_SHAPE_LEFT]
-    LSL     R4, R4, #16
+    LSLS    R4, R4, #16
     LDRB    R5, [R3, #VAR_EXT_NOISE_SHAPE_RIGHT]
-    LSL     R5, R5, #16
+    LSLS    R5, R5, #16
 .if ENABLE_REVERB==1
     LDRB    R2, [R3, #VAR_REVERB]
-    LSR     R2, R2, #2
+    LSRS    R2, R2, #2
     LDR     R1, [SP, #ARG_BUFFER_POS_INDEX_HINT]
     CMP     R1, #2
 .else
-    MOV     R2, #0
-    MOV     R3, #0
+    MOVS    R2, #0
+    MOVS    R3, #0
 .endif
     ADR     R0, C_downsampler
     BX      R0
@@ -1129,9 +1132,9 @@ C_downsampler_loop:
 
 C_downsampler_return:
     LDR     R0, [SP, #ARG_PCM_STRUCT]
-    LSR     R4, #16
+    LSRS    R4, #16
     STRB    R4, [R0, #VAR_EXT_NOISE_SHAPE_LEFT]
-    LSR     R5, #16
+    LSRS    R5, #16
     STRB    R5, [R0, #VAR_EXT_NOISE_SHAPE_RIGHT]
     LDR     R3, =0x68736D53                     @ this is used to indicate the interrupt handler the rendering was finished properly
     STR     R3, [R0]
@@ -1164,7 +1167,7 @@ C_setup_synth:
     LDRB    R0, [R3, #SYNTH_BASE_WAVE_DUTY]
     MOV     R0, R0, LSL#24
     MLA     R6, R10, R1, R0                 @ calculate the final duty cycle with the offset, and intensity * rotating duty cycle amount
-    STMFD   SP!, {R2, R3, R9, R12}
+    PUSH    {R2, R3, R9, R12}
 
 C_synth_pulse_loop:
     LDMIA   R5, {R0-R3, R9, R10, R12, LR} @ load 8 samples
@@ -1205,7 +1208,7 @@ C_synth_pulse_loop:
     SUBS    R8, R8, #8
     BGT     C_synth_pulse_loop
 
-    LDMFD   SP!, {R2, R3, R9, R12}
+    POP     {R2, R3, R9, R12}
     B       C_end_mixing
 
 C_check_synth_saw:
@@ -1294,7 +1297,7 @@ C_synth_triangle_loop:
 /* R0: base addr
  * R1: len in bytes */
 F_clear_mem:
-    STMFD   SP!, {R0, R2-R5, LR}
+    PUSH    {R0, R2-R5, LR}
     MOV     R2, #0
     MOV     R3, #0
     MOV     R4, #0
@@ -1310,9 +1313,9 @@ C_clear_loop:
     SUBS    R1, R1, #0x40
     BPL     C_clear_loop
     ANDS    R1, R1, #0xC
-    LDMEQFD SP!, {R0, R2-R5, PC}
+    POPEQ   {R0, R2-R5, PC}
 C_clear_loop_rest:
     STMIA   R0!, {R2}
     SUBS    R1, R1, #4
     BGT     C_clear_loop_rest
-    LDMFD   SP!, {R0, R2-R5, PC}
+    POP     {R0, R2-R5, PC}
