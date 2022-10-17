@@ -860,10 +860,9 @@ C_setup_fixed_freq_mixing:
     STMFD   SP!, {R4, R9}
 
 C_fixed_mixing_length_check:
-    MOV     LR, R2                          @ sample countdown
-    CMP     R2, R8
-    MOVGT   LR, R8                          @ min(buffer_size, sample_countdown)
-    SUB     LR, LR, #1
+    CMP     R2, R8                          @ min(buffer_size, sample_countdown) - 1
+    SUBGT   LR, R8, #1
+    SUBLE   LR, R2, #1
     MOVS    LR, LR, LSR#2
     BEQ     C_fixed_mixing_process_rest     @ <= 3 samples to process
 
