@@ -1069,7 +1069,8 @@ C_downsampler_return:
     MOV     R9, R1
     MOV     R10, R2
     MOV     R11, R3
-    POP     {PC}
+    POP     {R3}
+    BX      R3                                  @ Interwork
 
     .pool
 
