@@ -133,7 +133,7 @@ SoundMainRAM:
      */
     MOV     R4, R8  @ R4 = buffer length
     /*
-     * this stroes the buffer length to a backup location
+     * this stores the buffer length to a backup location
      */
     STR     R4, [SP, #ARG_FRAME_LENGTH]
     /* init channel loop */
@@ -370,6 +370,7 @@ C_sample_loop_setup_skip:
     LDR     R2, [R4, #CHN_SAMPLE_COUNTDOWN]
     LDR     R3, [R4, #CHN_POSITION_ABS]
     LDRB    R0, [R4, #CHN_MODE]
+    /* switch to arm */
     ADR     R1, C_mixing_setup
     BX      R1
 
@@ -415,7 +416,7 @@ C_mixing_setup_comp_rev:
     BNE     C_setup_synth
     /*
      * Mixing goes with volume ranges 0-127
-     * They come in 0-255 --> divide by 2
+     * They come in 0-255 --> divide by 2 (rounding up)
      */
     MOVS    R11, R11, LSR#1
     ADC     R11, R11, #0x8000
@@ -534,8 +535,8 @@ C_data_load_comp_loop:
 
 C_data_load_comp_rev:
     /* LR = end_of_last_block */
-    ADD     LR, R3, #(BDPCM_BLK_SIZE-1)
-    BIC     LR, #BDPCM_BLK_SIZE_MASK
+    ADD     LR, R3, #BDPCM_BLK_SIZE_MASK
+    BIC     LR, LR, #BDPCM_BLK_SIZE_MASK
     /* R9 = start_of_first_block >> 6 */
     SUB     R9, R3, R0
     SUB     R9, #1  @ one extra sample for LERP
@@ -596,6 +597,7 @@ C_data_load_uncomp_rev:
     STRB    R1, [R2, #CHN_STATUS]
 C_data_load_uncomp_rev_loop:
     LDMIA   R9!, {R1}
+    @ Byteswap
     EOR     R2, R1, R1, ROR#16
     MOV     R2, R2, LSR#8
     BIC     R2, R2, #0xFF00
@@ -638,11 +640,11 @@ C_data_load_uncomp_for:
      * The code below inits the DMA to read word aligned
      * samples from ROM to stack
      */
-    MOV     R9, #0x04000000
-    ADD     R9, #0x000000D4
+    MOV     R9, #REG_DMA3_SRC & 0xFF000000
+    ADD     R9, #REG_DMA3_SRC & 0x000000FF
     MOV     R0, R0, LSR#2
     SUB     SP, SP, R0, LSL#2
-    ORR     LR, R0, #0x84000000
+    ORR     LR, R0, #0x84000000             @ DMA enable, 32-bit transfer type
     STMIA   R9, {R1, SP, LR}                @ actually starts the DMA
 .else
     /*
@@ -709,7 +711,7 @@ C_fast_mixing_creation_loop:
     ADD     LR, LR, #(ARM_OP_LEN*38)
     STMIA   LR, {R2, R8-R10}
     SUB     LR, LR, #(ARM_OP_LEN*32)
-    ADDS    R5, R5, #0x40000000         @ do that for 4 blocks
+    ADDS    R5, R5, #0x40000000         @ do that for 4 blocks (unused pointer bits)
     BCC     C_fast_mixing_creation_loop
 
 C_skip_fast_mixing_creation:
@@ -818,6 +820,7 @@ C_end_mixing:
     B       C_mixing_end_store
 
 C_unbuffered_mixing_loop_or_end:
+    /* XXX: R0 or R6? */
     /* This loads the loop information end loops incase it should */
     LDR     R0, [SP, #(ARG_LOOP_LENGTH+0xC)]
     CMP     R0, #0                          @ check if loop is enabled; if Loop is enabled R6 is != 0
@@ -899,7 +902,7 @@ fixed_mixing_instructions:
     SUB     R3, R3, #4                      @ we'll need to load this block again, so rewind a bit
 
 C_fixed_mixing_process_rest:
-    MOV     R1, #4                          @ repeat the loop #4 times to completley get rid of alignment errors
+    MOV     R1, #4                          @ repeat the loop #4 times to completely get rid of alignment errors
 
 C_fixed_mixing_unaligned_loop:
     LDR     R0, [R5]
@@ -922,6 +925,7 @@ C_mixing_end_store:
     STR     R3, [R4, #CHN_POSITION_ABS]
 
 C_mixing_epilogue:
+    /* Switch to Thumb */
     ADR     R0, (C_end_channel_state_loop+1)
     BX      R0
 
@@ -951,6 +955,7 @@ C_main_mixer_return:
     MOVS    R2, #0
     MOVS    R3, #0
 .endif
+    /* Switch to ARM */
     ADR     R0, C_downsampler
     BX      R0
 
@@ -1040,7 +1045,7 @@ C_downsampler_loop:
 .endif
     SUBS    R8, #2
     BGT     C_downsampler_loop
-
+    /* Switch to Thumb */
     ADR     R0, (C_downsampler_return+1)
     BX      R0
 
@@ -1154,7 +1159,7 @@ C_synth_triangle_loop:
     .endr
 
     STMIA   R5!, {R0, R1, R10, LR}
-    SUBS    R8, R8, #4                  @ subtract #4 from the remainging samples
+    SUBS    R8, R8, #4                  @ subtract #4 from the remaining samples
     BGT     C_synth_triangle_loop
 
     B       C_end_mixing
