@@ -1190,3 +1190,17 @@ C_clear_loop_rest:
     SUBS    R1, R1, #4
     BGT     C_clear_loop_rest
     POP     {R0, R2-R5, PC}
+
+MixerEnd:
+
+    .equ    MIXER_BUFFER_SIZE, MixerEnd - SoundMainRAM
+
+    .global MixerSize
+MixerSize:
+    .int MIXER_BUFFER_SIZE
+
+    .bss
+
+    .global MixerBuffer
+MixerBuffer:
+    .space MIXER_BUFFER_SIZE
