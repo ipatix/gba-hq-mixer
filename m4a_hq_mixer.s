@@ -942,10 +942,6 @@ C_end_channel_state_loop:
 
 C_main_mixer_return:
     LDR     R3, [SP, #ARG_PCM_STRUCT]
-    LDRB    R4, [R3, #VAR_EXT_NOISE_SHAPE_LEFT]
-    LSLS    R4, R4, #16
-    LDRB    R5, [R3, #VAR_EXT_NOISE_SHAPE_RIGHT]
-    LSLS    R5, R5, #16
 .if ENABLE_REVERB==1
     LDRB    R2, [R3, #VAR_REVERB]
     LSRS    R2, R2, #2
@@ -977,29 +973,25 @@ C_downsampler:
 
 C_downsampler_loop:
     LDMIA   R10, {R0, R1}
-    ADD     R12, R4, R0         @ left sample #1
+    MOV     R12, R0             @ left sample #1
     ADDS    R4, R12, R12
     EORVS   R12, LR, R4, ASR#31
-    AND     R4, R12, #0x007F0000
     AND     R6, R11, R12, LSR#15
 
-    ADD     R12, R5, R0, LSL#16 @ right sample #1
+    MOV     R12, R0, LSL#16     @ right sample #1
     ADDS    R5, R12, R12
     EORVS   R12, LR, R5, ASR#31
-    AND     R5, R12, #0x007F0000
     AND     R7, R11, R12, LSR#15
 
-    ADD     R12, R4, R1         @ left sample #2
+    MOV     R12, R1             @ left sample #2
     ADDS    R4, R12, R12
     EORVS   R12, LR, R4, ASR#31
-    AND     R4, R12, #0x007F0000
     AND     R12, R11, R12, LSR#15
     ORR     R6, R12, R6, LSR#8
 
-    ADD     R12, R5, R1, LSL#16 @ right sample #2
+    MOV     R12, R1, LSL#16     @ right sample #2
     ADDS    R5, R12, R12
     EORVS   R12, LR, R5, ASR#31
-    AND     R5, R12, #0x007F0000
     AND     R12, R11, R12, LSR#15
     ORR     R7, R12, R7, LSR#8
 
@@ -1057,10 +1049,6 @@ C_downsampler_loop:
 
 C_downsampler_return:
     LDR     R0, [SP, #ARG_PCM_STRUCT]
-    LSRS    R4, #16
-    STRB    R4, [R0, #VAR_EXT_NOISE_SHAPE_LEFT]
-    LSRS    R5, #16
-    STRB    R5, [R0, #VAR_EXT_NOISE_SHAPE_RIGHT]
     LDR     R3, =0x68736D53                     @ this is used to indicate the interrupt handler the rendering was finished properly
     STR     R3, [R0]
     ADD     SP, SP, #0x1C
