@@ -1021,10 +1021,10 @@ C_downsampler_loop:
     STRH    R7, [R9], #2
 
     ADDS    R1, R1, R12, ASR#8
-    ADDMI   R1, R1, #0x3
+    ADDMI   R1, R1, #0x4
     MOV     R12, R12, LSL#24
     ADDS    R0, R0, R12, ASR#24
-    ADDMI   R0, R0, #0x3
+    ADDMI   R0, R0, #0x4
 
     MUL     R1, R2, R1
     MUL     R0, R2, R0
