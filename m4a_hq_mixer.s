@@ -1,5 +1,5 @@
 /* HQ-Mixer rev 4.0 created by ipatix (c) 2021
- * licensed under GPLv3, see LICENSE.txt for details */
+ * Licensed under the MIT License; see LICENSE for details. */
 
     /**********************
      * CONFIGURATION AREA *
